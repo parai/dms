@@ -1,0 +1,5 @@
+*.pyc
+*.pb
+*.ckpt*
+*.meta
+*project
