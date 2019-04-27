@@ -9,13 +9,15 @@
 import os
 import tensorflow as tf
 import numpy as np
+import cv2
 
 from sklearn.metrics.pairwise import euclidean_distances
 
 __all__ = ['predict']
 
-sess = tf.InteractiveSession()
 last_embeddings = None
+
+sess = tf.Session()
 
 def model():
     dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20170512-110547'
@@ -36,8 +38,20 @@ def model():
 
 input,embeddings,phase_train_placeholder = model()
 
+def prewhiten(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    std_adj = np.maximum(std, 1.0/np.sqrt(x.size))
+    y = np.multiply(np.subtract(x, mean), 1/std_adj)
+    return y
+
 def predict(face):
     global last_embeddings
+
+    face = cv2.resize(face,(160,160), cv2.INTER_LINEAR)
+    face = prewhiten(face)
+    face = face.reshape(1,160,160,3)
+
     feed_dict = { input: face, phase_train_placeholder:False }
     emb = sess.run(embeddings, feed_dict=feed_dict) 
 
