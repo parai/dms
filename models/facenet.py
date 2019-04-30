@@ -11,12 +11,11 @@ import glob
 import tensorflow as tf
 import numpy as np
 import cv2
+import pickle
 
 from sklearn.metrics.pairwise import euclidean_distances
 
 __all__ = ['predict']
-
-last_embeddings = []
 
 sess = tf.Session()
 
@@ -40,7 +39,7 @@ def model():
     sess.run(tf.global_variables_initializer())
     return input,embeddings,phase_train_placeholder
 
-input,embeddings,phase_train_placeholder = model()
+input_face,embeddings,phase_train_placeholder = model()
 
 def prewhiten(x):
     mean = np.mean(x)
@@ -49,6 +48,11 @@ def prewhiten(x):
     y = np.multiply(np.subtract(x, mean), 1/std_adj)
     return y
 
+if(os.path.exists('facedb.pkl')):
+    people = pickle.load(open('facedb.pkl','rb'))
+else:
+    people = {}
+
 def predict(face):
     global last_embeddings
 
@@ -56,26 +60,33 @@ def predict(face):
     face = prewhiten(face)
     face = face.reshape(1,160,160,3)
 
-    feed_dict = { input: face, phase_train_placeholder:False }
+    feed_dict = { input_face: face, phase_train_placeholder:False }
     emb = sess.run(embeddings, feed_dict=feed_dict) 
 
-    if(len(last_embeddings) < 10):
-        name = 'unknown'
-        last_embeddings.append(emb)
-        dis = -1
-        if(len(last_embeddings) >= 10): 
-            disL = [ euclidean_distances(lemb, emb)[0][0] for lemb in last_embeddings]
-            print('distance is', disL)
-    else:
-        name = 'same'
-        for lemb in last_embeddings:
-            dis = euclidean_distances(lemb, emb)[0][0]
-            
-            if(dis < 1.0):
+    fname = 'other'
+    dis = 0
+    for name, pembs in people.items():
+        isMe = True
+        for pemb in pembs:
+            dis = euclidean_distances(pemb, emb)[0][0]
+            if(dis < 1.05):
                 pass
             else:
-                name = 'face changed'
+                isMe = False
                 break
+        if(isMe):
+            fname = name
+            break
+    if(fname == 'other'):
+        fname = input('new face detected, registering, input the name:')
+        if(fname!=''):
+            people[fname] = [emb]
+            pickle.dump(people, open('facedb.pkl','wb'))
+        else:
+            fname = 'other'
+    elif(len(people[fname]) < 10):
+        people[fname].append(emb)
+        pickle.dump(people, open('facedb.pkl','wb'))
 
-    return name,dis
+    return fname,dis
 

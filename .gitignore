@@ -6,3 +6,5 @@
 *.zip
 *.tar*
 *.tflearn*
+*.pkl
+
