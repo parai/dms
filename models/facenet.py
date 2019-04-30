@@ -7,6 +7,7 @@
 # https://github.com/WindZu/facenet_facerecognition
 
 import os
+import glob
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -15,20 +16,23 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 __all__ = ['predict']
 
-last_embeddings = None
+last_embeddings = []
 
 sess = tf.Session()
 
 def model():
-    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20170512-110547'
-    if(False):
-        with tf.gfile.FastGFile('%s/20170512-110547.pb'%(dir), 'rb') as f:
+    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20180408-102900'
+    if(True):
+        pb = glob.glob('%s/*.pb'%(dir))[0]
+        with tf.gfile.FastGFile(pb, 'rb') as f:
             graph_def = tf.GraphDef()
             graph_def.ParseFromString(f.read())
             _ = tf.import_graph_def(graph_def, name='')
     else:
-        saver = tf.train.import_meta_graph('%s/model-20170512-110547.meta'%(dir))
-        saver.restore(sess, '%s/model-20170512-110547.ckpt-250000'%(dir))
+        meta = glob.glob('%s/*.meta'%(dir))[0]
+        ckpt = glob.glob('%s/*.index'%(dir))[0][:-6]
+        saver = tf.train.import_meta_graph(meta)
+        saver.restore(sess, ckpt)
 
     input = sess.graph.get_tensor_by_name('input:0')
     embeddings = sess.graph.get_tensor_by_name('embeddings:0')
@@ -55,17 +59,23 @@ def predict(face):
     feed_dict = { input: face, phase_train_placeholder:False }
     emb = sess.run(embeddings, feed_dict=feed_dict) 
 
-    if(last_embeddings is None):
+    if(len(last_embeddings) < 10):
         name = 'unknown'
-        last_embeddings = emb
+        last_embeddings.append(emb)
         dis = -1
+        if(len(last_embeddings) >= 10): 
+            disL = [ euclidean_distances(lemb, emb)[0][0] for lemb in last_embeddings]
+            print('distance is', disL)
     else:
-        dis = euclidean_distances(last_embeddings, emb)[0][0]
-        
-        if(dis < 1.0):
-            name = 'same'
-        else:
-            name = 'face changed'
+        name = 'same'
+        for lemb in last_embeddings:
+            dis = euclidean_distances(lemb, emb)[0][0]
+            
+            if(dis < 1.0):
+                pass
+            else:
+                name = 'face changed'
+                break
 
     return name,dis
 

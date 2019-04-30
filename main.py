@@ -14,6 +14,7 @@ cv2_root = os.path.dirname(os.path.realpath(cv2.__file__))
 video = cv2.VideoCapture(args.video)
 
 from models.facenet import predict as face_recognise
+from models.emotion import predict as face_emotion
 if(args.detect == 'cv2'):
     haar_face_cascade = cv2.CascadeClassifier('%s/data/haarcascade_frontalface_alt.xml'%(cv2_root))
 else:
@@ -41,7 +42,12 @@ def main():
             face = faces[i]
             name,dis = face_recognise(face)
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            cv2.putText(frame, '%s %.2f'%(name, dis), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
+            cv2.putText(frame, '%s %.2f'%(name, dis), 
+                        (x, y-20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
+                        1.0, (0, 0 ,255), thickness = 1, lineType = 2)
+            emotion,eprob = face_emotion(face)
+            cv2.putText(frame, '%s %.2f'%(emotion, eprob), 
+                        (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
                         1.0, (0, 0 ,255), thickness = 1, lineType = 2)
         cv2.imshow('frame',frame)
         if((cv2.waitKey(10)&0xFF) == ord('q')):

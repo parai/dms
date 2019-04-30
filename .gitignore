@@ -3,3 +3,6 @@
 *.ckpt*
 *.meta
 *project
+*.zip
+*.tar*
+*.tflearn*
