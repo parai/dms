@@ -7,4 +7,5 @@
 *.tar*
 *.tflearn*
 *.pkl
+*.h5
 

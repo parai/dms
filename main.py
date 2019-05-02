@@ -15,6 +15,7 @@ video = cv2.VideoCapture(args.video)
 
 from models.facenet import predict as face_recognise
 from models.emotion import predict as face_emotion
+from models.drowsy import predict as face_drowsy
 if(args.detect == 'cv2'):
     haar_face_cascade = cv2.CascadeClassifier('%s/data/haarcascade_frontalface_alt.xml'%(cv2_root))
 else:
@@ -49,6 +50,9 @@ def main():
             cv2.putText(frame, '%s %.2f'%(emotion, eprob), 
                         (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
                         1.0, (0, 0 ,255), thickness = 1, lineType = 2)
+            drowsy,prob,(ex1,ey1,ex2,ey2) = face_drowsy(face, name)
+            if((ex1<ex2) and (ey1<ey2)):
+                cv2.rectangle(frame, (x+ex1, y+ey1), (x+ex2, y+ey2), (0, 255, 0), 2)
         cv2.imshow('frame',frame)
         if((cv2.waitKey(10)&0xFF) == ord('q')):
             break
