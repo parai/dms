@@ -8,5 +8,6 @@
 *.tflearn*
 *.pkl
 *.h5
-
+gaze
+graphs
 /build/
