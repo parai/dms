@@ -70,8 +70,6 @@ def predict(face, name):
         ex1,ey1,ex2,ey2 = detect_eye(face,name)
     if((ex1<ex2) and (ey1<ey2)):
         eye = face[ey1:ey2, ex1:ex2]
-        #result = network.predict(eye)
-        #print(result)
     return '?',0,(ex1,ey1,ex2,ey2)
 
 
