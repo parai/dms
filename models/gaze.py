@@ -126,7 +126,7 @@ def draw_gaze(image_in, eye_pos, pitchyaw, length=40.0, thickness=2, color=(0, 0
                    thickness, cv.LINE_AA, tipLength=0.2)
     return image_out
 
-def predict(eyes, frame):
+def _predict(eyes, frame):
     eyes = cv2.cvtColor(eyes, cv2.COLOR_BGR2GRAY)
     h,w = eyes.shape
     ew = int(w/3)
@@ -144,7 +144,6 @@ def predict(eyes, frame):
     Placeholder_1 = sess.graph.get_tensor_by_name('learning_params/Placeholder_1:0')
     feed_dict = { eye:eyeI, Placeholder_1:False }
     oheatmaps,olandmarks,oradius = sess.run((heatmaps,landmarks,radius), feed_dict=feed_dict)
-
     for j in range(2):
         # Decide which landmarks are usable
         heatmaps_amax = np.amax(oheatmaps[j, :].reshape(-1, 18), axis=0)
@@ -216,3 +215,10 @@ def predict(eyes, frame):
             current_gaze = np.array([theta, phi])
             draw_gaze(frame, iris_centre, current_gaze,
                                 length=120.0, thickness=1)
+
+def predict(context):
+    for face in context['faces']:
+        if('drowsy' in face):
+            _,_,(ex1,ey1,ex2,ey2) = face['drowsy']
+            if((ex1<ex2) and (ey1<ey2)):
+                _predict(face['frame'][ey1:ey2, ex1:ex2], context['frame'])

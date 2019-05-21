@@ -8,15 +8,24 @@ parser.add_argument('-v', dest='video', default=0,
                     help='specify video sorce, e.g: http://192.168.1.101:4747/video')
 parser.add_argument('-d', dest='detect', default='mtcnn',
                     help='which method to detect location of face, cv2 or mtcnn')
+networks = ['facenet','emotion','drowsy','gaze']
+parser.add_argument('-n', '--network',
+                    default=networks,
+                    help='networks to be enabled from %s, default all is enabled'%(networks), 
+                    type=str, nargs='+')
 args = parser.parse_args()
 
+print('networks: %s'%(args.network))
 cv2_root = os.path.dirname(os.path.realpath(cv2.__file__))
 video = cv2.VideoCapture(args.video)
-
-from models.facenet import predict as face_recognise
-from models.emotion import predict as face_emotion
-from models.drowsy import predict as face_drowsy
-# from models.gaze import predict as gaze_direction
+if('facenet' in args.network):
+    from models.facenet import predict as face_recognise
+if('emotion' in args.network):
+    from models.emotion import predict as face_emotion
+if('drowsy' in args.network):
+    from models.drowsy import predict as face_drowsy
+if('gaze' in args.network):
+    from models.gaze import predict as gaze_direction
 if(args.detect == 'cv2'):
     haar_face_cascade = cv2.CascadeClassifier('%s/data/haarcascade_frontalface_alt.xml'%(cv2_root))
 else:
@@ -58,9 +67,10 @@ def main():
             cv2_face_detect(context)
         else:
             face_detect(context)
-        face_recognise(context)
-        face_emotion(context)
-        face_drowsy(context)
+        if('facenet' in args.network): face_recognise(context)
+        if('emotion' in args.network): face_emotion(context)
+        if('drowsy' in args.network): face_drowsy(context)
+        if('gaze' in args.network): gaze_direction(context)
         visualize(context)
         if((cv2.waitKey(10)&0xFF) == ord('q')):
             break
