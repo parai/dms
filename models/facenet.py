@@ -53,7 +53,7 @@ if(os.path.exists('facedb.pkl')):
 else:
     people = {}
 
-def predict(face):
+def _predict(face):
     global last_embeddings
 
     face = cv2.resize(face,(160,160), cv2.INTER_LINEAR)
@@ -89,4 +89,9 @@ def predict(face):
         pickle.dump(people, open('facedb.pkl','wb'))
 
     return fname,dis
+
+def predict(context):
+    for face in context['faces']:
+        fname,dis = _predict(face['frame'])
+        face['faceid'] = (fname,dis)
 

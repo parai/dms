@@ -19,15 +19,15 @@ minsize = 20 # minimum size of face
 threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
 factor = 0.709 # scale factor
 
-def predict(image):
-    img = image
+def predict(context):
+    frame = context['frame']
+    img = frame
     img_size = np.asarray(img.shape)[0:2]
     bounding_boxes, _ = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
   
     if len(bounding_boxes) < 1:
-        return [],[]
+        context['faces'] = []
     else:    
-        faces=[]
         boxs = []
         det=bounding_boxes
 
@@ -39,8 +39,7 @@ def predict(image):
         det=det.astype(int)
 
         for i in range(len(bounding_boxes)):
-            face=img[det[i,1]:det[i,3],det[i,0]:det[i,2],:]
-            faces.append(face)
             boxs.append((det[i,0],det[i,1],det[i,2]-det[i,0],det[i,3]-det[i,1]))
 
-        return boxs,faces
+        context['faces'] = [{'box':(x, y, w, h), 'frame':frame[y:y+h, x:x+w]} for (x, y, w, h) in boxs]
+

@@ -60,7 +60,7 @@ def detect_eye(face, name):
                 print('%s\'s eye location: %s'%(name, eyedb[name][:-1]))
     return ex1,ey1,ex2,ey2
 
-def predict(face, name):
+def _predict(face, name):
     face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
     if((name!='other') and (name in eyedb) and (eyedb[name][4]>=confirmed)):
         h, w = face.shape
@@ -68,8 +68,13 @@ def predict(face, name):
         ex1,ey1,ex2,ey2 = int((ex1-0.02)*w),int(ey1*h),int((ex2+0.02)*w),int(ey2*h)
     else:
         ex1,ey1,ex2,ey2 = detect_eye(face,name)
-    if((ex1<ex2) and (ey1<ey2)):
-        eye = face[ey1:ey2, ex1:ex2]
     return '?',0,(ex1,ey1,ex2,ey2)
 
-
+def predict(context):
+    for face in context['faces']:
+        if('faceid' in face):
+            name,_ = face['faceid']
+        else:
+            name = 'other'
+        status,prob,box = _predict(face['frame'], name)
+        face['drowsy'] = (status,prob,box)

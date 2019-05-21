@@ -8,6 +8,8 @@
 *.tflearn*
 *.pkl
 *.h5
+*.dat
+*.xml
 gaze
 graphs
 /build/
