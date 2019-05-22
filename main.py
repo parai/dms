@@ -18,6 +18,7 @@ args = parser.parse_args()
 print('networks: %s'%(args.network))
 cv2_root = os.path.dirname(os.path.realpath(cv2.__file__))
 video = cv2.VideoCapture(args.video)
+
 if('facenet' in args.network):
     from models.facenet import predict as face_recognise
 if('emotion' in args.network):
@@ -26,17 +27,17 @@ if('drowsy' in args.network):
     from models.drowsy import predict as face_drowsy
 if('gaze' in args.network):
     from models.gaze import predict as gaze_direction
+    from models.gaze import visualize as gaze_visualize
 if(args.detect == 'cv2'):
     haar_face_cascade = cv2.CascadeClassifier('%s/data/haarcascade_frontalface_alt.xml'%(cv2_root))
+    def face_detect(context):
+        #https://www.superdatascience.com/blogs/opencv-face-detection
+        frame = context['frame']
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        boxs = haar_face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+        context['faces'] = [{'box':(x, y, w, h)} for (x, y, w, h) in boxs]
 else:
     from models.mtcnn import predict as face_detect
-
-def cv2_face_detect(context):
-    #https://www.superdatascience.com/blogs/opencv-face-detection
-    frame = context['frame']
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    boxs = haar_face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-    context['faces'] = [{'box':(x, y, w, h), 'frame':frame[y:y+h, x:x+w]} for (x, y, w, h) in boxs]
 
 def visualize(context):
     frame = context['frame']
@@ -57,16 +58,14 @@ def visualize(context):
             drowsy,prob,(ex1,ey1,ex2,ey2) = face['drowsy']
             if((ex1<ex2) and (ey1<ey2)):
                 cv2.rectangle(frame, (x+ex1, y+ey1), (x+ex2, y+ey2), (0, 255, 0), 2)
+    gaze_visualize(context)
     cv2.imshow('frame',frame)
 
 def main():
     ret, frame = video.read()
     while(ret):
-        context = { 'frame': frame }
-        if(args.detect == 'cv2'):
-            cv2_face_detect(context)
-        else:
-            face_detect(context)
+        context = { 'frame': frame, 'gray': cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) }
+        face_detect(context)
         if('facenet' in args.network): face_recognise(context)
         if('emotion' in args.network): face_emotion(context)
         if('drowsy' in args.network): face_drowsy(context)

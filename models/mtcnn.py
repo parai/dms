@@ -41,5 +41,5 @@ def predict(context):
         for i in range(len(bounding_boxes)):
             boxs.append((det[i,0],det[i,1],det[i,2]-det[i,0],det[i,3]-det[i,1]))
 
-        context['faces'] = [{'box':(x, y, w, h), 'frame':frame[y:y+h, x:x+w]} for (x, y, w, h) in boxs]
+        context['faces'] = [{'box':(x, y, w, h)} for (x, y, w, h) in boxs]
 

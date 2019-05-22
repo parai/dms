@@ -61,7 +61,6 @@ def detect_eye(face, name):
     return ex1,ey1,ex2,ey2
 
 def _predict(face, name):
-    face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
     if((name!='other') and (name in eyedb) and (eyedb[name][4]>=confirmed)):
         h, w = face.shape
         ex1,ey1,ex2,ey2,_ = eyedb[name]
@@ -76,5 +75,7 @@ def predict(context):
             name,_ = face['faceid']
         else:
             name = 'other'
-        status,prob,box = _predict(face['frame'], name)
+        x, y, w, h = face['box']
+        gray = context['gray'][y:y+h, x:x+w]
+        status,prob,box = _predict(gray, name)
         face['drowsy'] = (status,prob,box)

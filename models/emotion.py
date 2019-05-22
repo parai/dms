@@ -30,7 +30,6 @@ def model():
 network = model()
 
 def _predict(face):
-    face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
     face = cv2.resize(face,(48,48), interpolation = cv2.INTER_CUBIC)/255.0
     face = face.reshape(1,48,48,1)
     emotions = network.predict(face)[0]
@@ -43,5 +42,7 @@ def _predict(face):
 
 def predict(context):
     for face in context['faces']:
-        emo,prob = _predict(face['frame'])
+        x, y, w, h = face['box']
+        gray = context['gray'][y:y+h, x:x+w]
+        emo,prob = _predict(gray)
         face['emotion'] = (emo,prob)

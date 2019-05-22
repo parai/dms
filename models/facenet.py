@@ -92,6 +92,8 @@ def _predict(face):
 
 def predict(context):
     for face in context['faces']:
-        fname,dis = _predict(face['frame'])
+        x, y, w, h = face['box']
+        frame = context['frame'][y:y+h, x:x+w]
+        fname,dis = _predict(frame)
         face['faceid'] = (fname,dis)
 
