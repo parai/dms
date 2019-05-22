@@ -6,7 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-v', dest='video', default=0,
                     help='specify video sorce, e.g: http://192.168.1.101:4747/video')
-parser.add_argument('-d', dest='detect', default='mtcnn',
+parser.add_argument('-d', dest='detect', default='cv2',
                     help='which method to detect location of face, cv2 or mtcnn')
 networks = ['facenet','emotion','drowsy','gaze']
 parser.add_argument('-n', '--network',
@@ -54,10 +54,10 @@ def visualize(context):
             cv2.putText(frame, '%s %.2f'%(emotion, eprob), 
                     (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
                     1.0, (0, 0 ,255), thickness = 1, lineType = 2)
-        if('drowsy' in face):
-            drowsy,prob,(ex1,ey1,ex2,ey2) = face['drowsy']
-            if((ex1<ex2) and (ey1<ey2)):
-                cv2.rectangle(frame, (x+ex1, y+ey1), (x+ex2, y+ey2), (0, 255, 0), 2)
+#         if('drowsy' in face):
+#             drowsy,prob,(ex1,ey1,ex2,ey2) = face['drowsy']
+#             if((ex1<ex2) and (ey1<ey2)):
+#                 cv2.rectangle(frame, (x+ex1, y+ey1), (x+ex2, y+ey2), (0, 255, 0), 2)
     gaze_visualize(context)
     cv2.imshow('frame',frame)
 
