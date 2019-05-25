@@ -43,6 +43,8 @@ def _predict(face):
 def predict(context):
     for face in context['faces']:
         x, y, w, h = face['box']
+        if((w<48) or (h<48)):
+            continue
         gray = context['gray'][y:y+h, x:x+w]
         emo,prob = _predict(gray)
         face['emotion'] = (emo,prob)

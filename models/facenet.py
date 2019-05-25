@@ -55,7 +55,7 @@ else:
 
 def _predict(face):
     global last_embeddings
-
+    iface = face
     face = cv2.resize(face,(160,160), cv2.INTER_LINEAR)
     face = prewhiten(face)
     face = face.reshape(1,160,160,3)
@@ -66,24 +66,23 @@ def _predict(face):
     fname = 'other'
     dis = 0
     for name, pembs in people.items():
-        isMe = True
+        dis = 0
         for pemb in pembs:
-            dis = euclidean_distances(pemb, emb)[0][0]
-            if(dis < 1.05):
-                pass
-            else:
-                isMe = False
-                break
-        if(isMe):
+            dis += euclidean_distances(pemb, emb)[0][0]
+        dis = dis/len(pembs)
+        if(dis < 1.05):
             fname = name
             break
     if(fname == 'other'):
+        cv2.imshow('face',iface)
+        cv2.waitKey(10)
         fname = input('new face detected, registering, input the name:')
-        if(fname!=''):
+        if((fname!='') and (fname not in people)):
             people[fname] = [emb]
             pickle.dump(people, open('facedb.pkl','wb'))
         else:
             fname = 'other'
+        dis = 0
     elif(len(people[fname]) < 10):
         people[fname].append(emb)
         pickle.dump(people, open('facedb.pkl','wb'))
@@ -93,6 +92,8 @@ def _predict(face):
 def predict(context):
     for face in context['faces']:
         x, y, w, h = face['box']
+        if((w<160) or (h<160)):
+            continue
         frame = context['frame'][y:y+h, x:x+w]
         fname,dis = _predict(frame)
         face['faceid'] = (fname,dis)

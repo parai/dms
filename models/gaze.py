@@ -135,8 +135,8 @@ def draw_gaze(image_in, eye_pos, pitchyaw, length=40.0, thickness=2, color=(0, 0
 
 def _visualize(face, context):
     frame = context['frame']
-    for x,y in face['landmarks']:
-        cv2.circle(frame, (x, y), 1, (0,255,0), -1, 8)
+#     for x,y in face['landmarks']:
+#         cv2.circle(frame, (x, y), 1, (0,255,0), -1, 8)
     oheatmaps,olandmarks,oradius = face['gaze']
     eyes = face['eyes']
     for j in range(2):
@@ -146,6 +146,7 @@ def _visualize(face, context):
         can_use_eye = np.all(heatmaps_amax > 0.3)
         can_use_eyelid = np.all(heatmaps_amax[0:8] > 0.75)
         can_use_iris = np.all(heatmaps_amax[8:16] > 0.8)
+        can_use_eye,can_use_eyelid,can_use_iris = True,False,False
         # Embed eye image and annotate for picture-in-picture
         eye = eyes[j]
         eye_image = eye['image']
@@ -154,7 +155,7 @@ def _visualize(face, context):
         eye_radius = oradius[j][0]
         if(eye_side == 'left'):
             eye_landmarks[:, 0] = eye_image.shape[1] - eye_landmarks[:, 0]
-            eye_image = np.fliplr(eye_image)
+            #eye_image = np.fliplr(eye_image)
         # Transform predictions
         eye_landmarks = np.concatenate([eye_landmarks,
                                         [[eye_landmarks[-1, 0] + eye_radius,
@@ -206,6 +207,8 @@ def _visualize(face, context):
 
 def visualize(context):
     for face in context['faces']:
+        if('gaze' not in face):
+            continue
         _visualize(face, context)
 
 _landmarks_predictor = None
@@ -336,4 +339,7 @@ def _predict(face, context):
 
 def predict(context):
     for face in context['faces']:
+        x, y, w, h = face['box']
+        if((w<160) or (h<160)):
+            continue
         _predict(face, context)

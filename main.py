@@ -8,6 +8,8 @@ parser.add_argument('-v', dest='video', default=0,
                     help='specify video sorce, e.g: http://192.168.1.101:4747/video')
 parser.add_argument('-d', dest='detect', default='cv2',
                     help='which method to detect location of face, cv2 or mtcnn')
+parser.add_argument('-f', dest='filter', default=1,
+                    help='sample rate of the input')
 networks = ['facenet','emotion','drowsy','gaze']
 parser.add_argument('-n', '--network',
                     default=networks,
@@ -47,12 +49,12 @@ def visualize(context):
         if('faceid' in face):
             name,dis = face['faceid']
             cv2.putText(frame, '%s %.2f'%(name, dis), 
-                    (x, y-20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
+                    (x, y+h+20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
                     1.0, (0, 0 ,255), thickness = 1, lineType = 2)
         if('emotion' in face):
             emotion,eprob = face['emotion']
             cv2.putText(frame, '%s %.2f'%(emotion, eprob), 
-                    (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
+                    (x, y+h), cv2.FONT_HERSHEY_COMPLEX_SMALL, 
                     1.0, (0, 0 ,255), thickness = 1, lineType = 2)
 #         if('drowsy' in face):
 #             drowsy,prob,(ex1,ey1,ex2,ey2) = face['drowsy']
@@ -63,7 +65,13 @@ def visualize(context):
 
 def main():
     ret, frame = video.read()
+    filter = eval(args.filter)
     while(ret):
+        h,w,_=frame.shape
+        if(w>1024):
+            h = int(1024*h/w)
+            w = 1024
+            frame = cv2.resize(frame, (w,h), cv2.INTER_LINEAR)
         context = { 'frame': frame, 'gray': cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) }
         face_detect(context)
         if('facenet' in args.network): face_recognise(context)
@@ -73,8 +81,11 @@ def main():
         visualize(context)
         if((cv2.waitKey(10)&0xFF) == ord('q')):
             break
-        ret, frame = video.read()
-    cap.release()
+        fn = 0
+        while(fn < filter):
+            fn += 1
+            ret, frame = video.read()
+    video.release()
     cv2.destroyAllWindows()
 
 if(__name__ == '__main__'):
