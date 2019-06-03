@@ -22,14 +22,22 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-//    externalNativeBuild {
-//        cmake {
-//            path "CMakeLists.txt"
-//        }
-//    }
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
+    }
     compileOptions {
         sourceCompatibility = '1.8'
         targetCompatibility = '1.8'
+    }
+
+    sourceSets {
+        main {
+            jni.srcDirs = [jni.srcDirs, 'src/OpenCV-android-sdk/sdk/native/jni/include']
+            jniLibs.srcDirs = [jniLibs.srcDirs, 'src/OpenCV-android-sdk/sdk/native/3rdparty/libs',
+                               'src/OpenCV-android-sdk/sdk/native/libs']
+        }
     }
 }
 

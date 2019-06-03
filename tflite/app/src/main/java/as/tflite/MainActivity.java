@@ -25,6 +25,7 @@ import android.graphics.Paint.Style;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.media.ImageReader.OnImageAvailableListener;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
@@ -68,6 +69,18 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
     private Matrix cropToFrameTransform;
 
     private BorderedText borderedText;
+
+    public native String stringFromJNI();
+
+    static {
+        System.loadLibrary("native-lib");
+    }
+
+    @Override
+    protected void onCreate(final Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        LOGGER.i(stringFromJNI());
+    }
 
     @Override
     public void onPreviewSizeChosen(final Size size, final int rotation) {

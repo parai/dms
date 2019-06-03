@@ -10,6 +10,12 @@ cmake_minimum_required(VERSION 3.4.1)
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 
+# version is 4.1.0, place it under dms/tflite/app/src
+set(OpenCV_DIR "./src/OpenCV-android-sdk/sdk/native/jni")
+find_package(OpenCV REQUIRED)
+message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 add_library( # Sets the name of the library.
              native-lib
 
@@ -39,6 +45,7 @@ find_library( # Sets the name of the path variable.
 target_link_libraries( # Specifies the target library.
                        native-lib
 
+                       ${OpenCV_LIBS}
                        # Links the target library to the log library
                        # included in the NDK.
                        ${log-lib} )
