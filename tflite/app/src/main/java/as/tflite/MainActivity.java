@@ -17,24 +17,14 @@ package as.tflite;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.Paint.Style;
-import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
-import android.widget.Toast;
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
 import as.tflite.customview.OverlayView;
-import as.tflite.customview.OverlayView.DrawCallback;
 import as.tflite.env.BorderedText;
 import as.tflite.env.ImageUtils;
 import as.tflite.env.Logger;
@@ -70,7 +60,7 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
     private BorderedText borderedText;
 
-    public native String stringFromJNI();
+    public native int[] toGray(int[] img, int w, int h);
 
     static {
         System.loadLibrary("native-lib");
@@ -79,7 +69,6 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        LOGGER.i(stringFromJNI());
     }
 
     @Override
@@ -112,12 +101,6 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
         frameToCropTransform.invert(cropToFrameTransform);
 
         trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
-        trackingOverlay.addCallback(
-                new DrawCallback() {
-                    @Override
-                    public void drawCallback(final Canvas canvas) {
-                    }
-                });
     }
 
     @Override
@@ -138,12 +121,43 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
         readyForNextImage();
 
-        final Canvas canvas = new Canvas(croppedBitmap);
-        canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
         // For examining the actual TF input.
         if (SAVE_PREVIEW_BITMAP) {
             ImageUtils.saveBitmap(croppedBitmap);
         }
+
+        runInBackground(
+            new Runnable() {
+                @Override
+                public void run() {
+                    LOGGER.i("Running detection on image " + currTimestamp);
+                    final long startTime = SystemClock.uptimeMillis();
+
+                    int[] pix = new int[previewWidth * previewHeight];
+                    rgbFrameBitmap.getPixels(pix, 0, previewWidth, 0, 0, previewWidth, previewHeight);
+                    int [] resultPixes = toGray(pix,previewWidth, previewHeight);
+                    Bitmap result = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.RGB_565);
+                    result.setPixels(resultPixes, 0, previewWidth, 0, 0, previewWidth, previewHeight);
+
+                    lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
+
+                    cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
+
+                    trackingOverlay.postInvalidate();
+
+                    computingDetection = false;
+
+                    runOnUiThread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                showFrameInfo(previewWidth + "x" + previewHeight);
+                                showCropInfo(cropCopyBitmap.getWidth() + "x" + cropCopyBitmap.getHeight());
+                                showInference(lastProcessingTimeMs + "ms");
+                            }
+                        });
+                }
+            });
     }
 
     @Override
