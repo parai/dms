@@ -15,11 +15,15 @@
  */
 package as.tflite;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.graphics.Canvas;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Matrix;
 import android.graphics.Typeface;
 import android.media.ImageReader.OnImageAvailableListener;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Size;
@@ -28,6 +32,21 @@ import as.tflite.customview.OverlayView;
 import as.tflite.env.BorderedText;
 import as.tflite.env.ImageUtils;
 import as.tflite.env.Logger;
+import as.tflite.customview.OverlayView.DrawCallback;
+
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Paint.Style;
+import android.graphics.Rect;
+
+
+import android.content.res.AssetManager;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends CameraActivity implements OnImageAvailableListener {
     private static final Logger LOGGER = new Logger();
@@ -60,15 +79,74 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
     private BorderedText borderedText;
 
+    private Paint paint;
+    private Rect rectangle;
+
     public native int[] toGray(int[] img, int w, int h);
 
     static {
         System.loadLibrary("native-lib");
     }
 
+    private void copyAssetFileIfNotExist(String filename) {
+        AssetManager assetManager = getAssets();
+        String newFileName = "/sdcard/DMS/" + filename;
+        File file = new File(newFileName);
+        if (file.exists()) {
+            LOGGER.i("File "+newFileName+" already exist.");
+            return;
+        }
+        try {
+            InputStream in = assetManager.open(filename);
+            OutputStream out = new FileOutputStream(newFileName);
+
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            in.close();
+            out.flush();
+            out.close();
+        } catch (Exception e) {
+            LOGGER.e(e.getMessage());
+        }
+    }
+
+    private boolean hasPermission(final String permission) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+        } else {
+            return true;
+        }
+    }
+
+    private void requestPermission(final String permission) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (shouldShowRequestPermissionRationale(permission)) {
+                Toast.makeText(
+                        MainActivity.this,
+                        permission+" permission is required for this demo",
+                        Toast.LENGTH_LONG)
+                        .show();
+            }
+            requestPermissions(new String[] {permission}, 1);
+        }
+    }
+
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (!hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) {
+            requestPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+
+        if (!hasPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+
+        copyAssetFileIfNotExist("haarcascade_frontalface_alt.xml");
     }
 
     @Override
@@ -100,7 +178,26 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
         cropToFrameTransform = new Matrix();
         frameToCropTransform.invert(cropToFrameTransform);
 
+        paint = new Paint();
+        paint.setColor(Color.RED);
+        paint.setStyle(Style.STROKE);
+        paint.setStrokeWidth(2.0f);
+
+        int x = 100;
+        int y = 100;
+        int sideLength = 200;
+
+        // create a rectangle that we'll draw later
+        rectangle = new Rect(x, y, sideLength, sideLength);
+
         trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
+        trackingOverlay.addCallback(
+            new DrawCallback() {
+                @Override
+                public void drawCallback(final Canvas canvas) {
+                    canvas.drawRect(rectangle, paint);
+                }
+            });
     }
 
     @Override
