@@ -70,6 +70,8 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
     private Bitmap croppedBitmap = null;
     private Bitmap cropCopyBitmap = null;
 
+    private Bitmap debugBitmap = null;
+
     private boolean computingDetection = false;
 
     private long timestamp = 0;
@@ -82,7 +84,7 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
     private Paint paint;
     private Rect rectangle;
 
-    public native int[] toGray(int[] img, int w, int h);
+    public native Bitmap toGray(Bitmap img);
 
     static {
         System.loadLibrary("native-lib");
@@ -96,6 +98,7 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
             LOGGER.i("File "+newFileName+" already exist.");
             return;
         }
+        file.mkdirs();
         try {
             InputStream in = assetManager.open(filename);
             OutputStream out = new FileOutputStream(newFileName);
@@ -232,9 +235,7 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
                     int[] pix = new int[previewWidth * previewHeight];
                     rgbFrameBitmap.getPixels(pix, 0, previewWidth, 0, 0, previewWidth, previewHeight);
-                    int [] resultPixes = toGray(pix,previewWidth, previewHeight);
-                    Bitmap result = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.RGB_565);
-                    result.setPixels(resultPixes, 0, previewWidth, 0, 0, previewWidth, previewHeight);
+                    debugBitmap = toGray(rgbFrameBitmap);
 
                     lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
 
@@ -251,6 +252,10 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
                                 showFrameInfo(previewWidth + "x" + previewHeight);
                                 showCropInfo(cropCopyBitmap.getWidth() + "x" + cropCopyBitmap.getHeight());
                                 showInference(lastProcessingTimeMs + "ms");
+                                if(debugBitmap != null) {
+                                    debugImageView.setImageBitmap(debugBitmap);
+                                    debugBitmap = null;
+                                }
                             }
                         });
                 }
