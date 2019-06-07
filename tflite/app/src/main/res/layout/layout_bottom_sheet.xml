@@ -26,7 +26,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:src="@drawable/icn_chevron_up" android:contentDescription="TODO" />
+            android:src="@drawable/icn_chevron_up" />
 
     </LinearLayout>
 
@@ -157,8 +157,7 @@
         android:id="@+id/debug"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/ic_launcher"
-        android:rotation="-90" />
+        android:src="@drawable/ic_launcher" />
 
     <View
         android:layout_width="match_parent"

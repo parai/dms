@@ -2,12 +2,15 @@
 #include <jni.h>
 #include <string>
 #include <iostream>
+#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <android/log.h>
 #include <android/bitmap.h>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "error", __VA_ARGS__))
@@ -15,6 +18,14 @@
 
 
 using namespace cv;
+using namespace std;
+
+CascadeClassifier haar_face_cascade;
+
+// context
+Mat c_frame;
+Mat c_grey;
+vector<Rect> c_face_rect;
 
 // from https://www.jianshu.com/p/08dcc910b088
 void BitmapToMat2(JNIEnv *env, jobject& bitmap, Mat& mat, jboolean needUnPremultiplyAlpha) {
@@ -144,20 +155,73 @@ void MatToBitmap(JNIEnv *env, Mat& mat, jobject& bitmap) {
 }
 
 extern "C"
-JNIEXPORT jobject
-
+JNIEXPORT void
 JNICALL
-Java_as_tflite_MainActivity_toGray(
+Java_as_tflite_MainActivity_asInit(
+        JNIEnv *env,
+        jobject /* this */) {
+    haar_face_cascade.load("/sdcard/DMS/haarcascade_frontalface_alt.xml");
+}
+
+
+extern "C"
+JNIEXPORT void
+JNICALL
+Java_as_tflite_MainActivity_asPreProcess(
         JNIEnv *env,
         jobject /* this */,
         jobject bitmap) {
-    Mat img;
-    jobject jBmpObj;
-
-    BitmapToMat(env, bitmap, img);
-    Mat gray;
-    cvtColor(img, gray, COLOR_BGR2GRAY);
-    MatToBitmap(env, gray, jBmpObj);
-
-    return jBmpObj;
+    BitmapToMat(env, bitmap, c_frame);
+    cvtColor(c_frame, c_grey, COLOR_BGR2GRAY);
+    haar_face_cascade.detectMultiScale(c_grey, c_face_rect, 1.1, 5, 0);
 }
+
+extern "C"
+JNIEXPORT int
+JNICALL
+Java_as_tflite_MainActivity_asGetFaceNumber(
+        JNIEnv *env,
+        jobject /* this */) {
+     return c_face_rect.size();
+}
+
+extern "C"
+JNIEXPORT jintArray
+JNICALL
+Java_as_tflite_MainActivity_asGetFaceRect(
+        JNIEnv *env,
+        jobject /* this */,
+        int faceid) {
+    jintArray result = env->NewIntArray(4);
+
+    int ibuf[4] = {
+        c_face_rect[faceid].x, c_face_rect[faceid].y,
+        c_face_rect[faceid].width, c_face_rect[faceid].height
+    };
+
+     env->SetIntArrayRegion(result, 0, 4, ibuf);
+
+    return result;
+}
+
+extern "C"
+JNIEXPORT jobject
+JNICALL
+Java_as_tflite_MainActivity_asGetDebugBitmap(
+        JNIEnv *env,
+        jobject /* this */) {
+    jobject bitmap;
+
+    for(int i=0; i<c_face_rect.size(); i++)
+    {
+        rectangle(c_frame, c_face_rect[i], Scalar(0, 0, 255), 2);
+    }
+
+    MatToBitmap(env, c_frame, bitmap);
+
+    return bitmap;
+}
+
+
+
+

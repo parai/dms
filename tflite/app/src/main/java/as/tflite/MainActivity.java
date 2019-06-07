@@ -18,10 +18,15 @@ package as.tflite;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.Paint.Style;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.Matrix;
 import android.graphics.Typeface;
+import android.graphics.RectF;
+
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Build;
 import android.os.Bundle;
@@ -30,14 +35,12 @@ import android.util.Size;
 import android.util.TypedValue;
 import as.tflite.customview.OverlayView;
 import as.tflite.env.BorderedText;
-import as.tflite.env.ImageUtils;
 import as.tflite.env.Logger;
-import as.tflite.customview.OverlayView.DrawCallback;
+import as.tflite.env.ImageUtils;
 
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Paint.Style;
-import android.graphics.Rect;
+import as.tflite.customview.OverlayView.DrawCallback;
+import as.tflite.tracking.MultiBoxTracker;
+import as.tflite.tracking.Recognition;
 
 
 import android.content.res.AssetManager;
@@ -47,6 +50,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.LinkedList;
+import java.util.List;
 
 public class MainActivity extends CameraActivity implements OnImageAvailableListener {
     private static final Logger LOGGER = new Logger();
@@ -67,24 +74,27 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
     private long lastProcessingTimeMs;
     private Bitmap rgbFrameBitmap = null;
-    private Bitmap croppedBitmap = null;
-    private Bitmap cropCopyBitmap = null;
-
+    private Bitmap rotatedBitmap = null;
     private Bitmap debugBitmap = null;
+
+    private Matrix frameToRotateTransform;
 
     private boolean computingDetection = false;
 
     private long timestamp = 0;
 
-    private Matrix frameToCropTransform;
-    private Matrix cropToFrameTransform;
+    private MultiBoxTracker tracker;
 
     private BorderedText borderedText;
 
-    private Paint paint;
-    private Rect rectangle;
+    private Lock asMutex;
 
-    public native Bitmap toGray(Bitmap img);
+    public native void asInit();
+    public native void asPreProcess(Bitmap img);
+    public native int  asGetFaceNumber();
+    public native int[]  asGetFaceRect(int faceid);
+
+    public native Bitmap asGetDebugBitmap();
 
     static {
         System.loadLibrary("native-lib");
@@ -150,6 +160,9 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
         }
 
         copyAssetFileIfNotExist("haarcascade_frontalface_alt.xml");
+
+        asMutex = new ReentrantLock(false);;
+        asInit();
     }
 
     @Override
@@ -159,6 +172,8 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
                         TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
         borderedText = new BorderedText(textSizePx);
         borderedText.setTypeface(Typeface.MONOSPACE);
+
+        tracker = new MultiBoxTracker(this);
 
         int cropSize = TF_OD_API_INPUT_SIZE;
 
@@ -170,37 +185,27 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
         LOGGER.i("Initializing at size %dx%d", previewWidth, previewHeight);
         rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Config.ARGB_8888);
-        croppedBitmap = Bitmap.createBitmap(cropSize, cropSize, Config.ARGB_8888);
+        rotatedBitmap = Bitmap.createBitmap(previewHeight, previewWidth, Config.ARGB_8888);
 
-        frameToCropTransform =
+        frameToRotateTransform =
                 ImageUtils.getTransformationMatrix(
                         previewWidth, previewHeight,
-                        cropSize, cropSize,
-                        sensorOrientation, MAINTAIN_ASPECT);
-
-        cropToFrameTransform = new Matrix();
-        frameToCropTransform.invert(cropToFrameTransform);
-
-        paint = new Paint();
-        paint.setColor(Color.RED);
-        paint.setStyle(Style.STROKE);
-        paint.setStrokeWidth(2.0f);
-
-        int x = 100;
-        int y = 100;
-        int sideLength = 200;
-
-        // create a rectangle that we'll draw later
-        rectangle = new Rect(x, y, sideLength, sideLength);
+                        previewHeight, previewWidth,
+                        -sensorOrientation, MAINTAIN_ASPECT);
 
         trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
         trackingOverlay.addCallback(
             new DrawCallback() {
                 @Override
                 public void drawCallback(final Canvas canvas) {
-                    canvas.drawRect(rectangle, paint);
+                    tracker.draw(canvas);
+                    if (isDebug()) {
+                        tracker.drawDebug(canvas);
+                    }
                 }
             });
+
+        tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
     }
 
     @Override
@@ -219,12 +224,10 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
         rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
 
-        readyForNextImage();
+        final Canvas canvas = new Canvas(rotatedBitmap);
+        canvas.drawBitmap(rgbFrameBitmap, frameToRotateTransform, null);
 
-        // For examining the actual TF input.
-        if (SAVE_PREVIEW_BITMAP) {
-            ImageUtils.saveBitmap(croppedBitmap);
-        }
+        readyForNextImage();
 
         runInBackground(
             new Runnable() {
@@ -233,14 +236,27 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
                     LOGGER.i("Running detection on image " + currTimestamp);
                     final long startTime = SystemClock.uptimeMillis();
 
-                    int[] pix = new int[previewWidth * previewHeight];
-                    rgbFrameBitmap.getPixels(pix, 0, previewWidth, 0, 0, previewWidth, previewHeight);
-                    debugBitmap = toGray(rgbFrameBitmap);
+                    final List<Recognition> mappedRecognitions =
+                            new LinkedList<Recognition>();
+
+                    asMutex.lock();
+                    asPreProcess(rotatedBitmap);
+
+                    int faceNumber = asGetFaceNumber();
+                    for(int i=0; i<faceNumber; i++) {
+                        int[] rect = asGetFaceRect(i);
+                        int x=rect[0], y=rect[1], w=rect[2], h=rect[3];
+                        final RectF rectangle = new RectF(y, x, y+h, x+w);
+                        Recognition rec = new Recognition(""+i,"face"+i, 1.0f, rectangle);
+                        mappedRecognitions.add(rec);
+                    }
+
+                    //debugBitmap = asGetDebugBitmap();
+                    asMutex.unlock();
 
                     lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
 
-                    cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
-
+                    tracker.trackResults(mappedRecognitions, currTimestamp);
                     trackingOverlay.postInvalidate();
 
                     computingDetection = false;
@@ -250,7 +266,6 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
                             @Override
                             public void run() {
                                 showFrameInfo(previewWidth + "x" + previewHeight);
-                                showCropInfo(cropCopyBitmap.getWidth() + "x" + cropCopyBitmap.getHeight());
                                 showInference(lastProcessingTimeMs + "ms");
                                 if(debugBitmap != null) {
                                     debugImageView.setImageBitmap(debugBitmap);
