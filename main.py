@@ -8,7 +8,7 @@ parser.add_argument('-v', dest='video', default=0,
                     help='specify video sorce, e.g: http://192.168.1.101:4747/video')
 parser.add_argument('-d', dest='detect', default='cv2',
                     help='which method to detect location of face, cv2 or mtcnn')
-parser.add_argument('-f', dest='filter', default=1,
+parser.add_argument('-f', dest='filter', default='1',
                     help='sample rate of the input')
 networks = ['facenet','emotion','drowsy','gaze']
 parser.add_argument('-n', '--network',

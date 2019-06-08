@@ -20,7 +20,7 @@ __all__ = ['predict']
 sess = tf.Session()
 
 def model():
-    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20180408-102900'
+    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20180402-114759'
     if(True):
         pb = glob.glob('%s/*.pb'%(dir))[0]
         with tf.gfile.FastGFile(pb, 'rb') as f:
@@ -37,6 +37,7 @@ def model():
     embeddings = sess.graph.get_tensor_by_name('embeddings:0')
     phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
     sess.run(tf.global_variables_initializer())
+
     return input,embeddings,phase_train_placeholder
 
 input_face,embeddings,phase_train_placeholder = model()

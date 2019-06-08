@@ -33,8 +33,8 @@ The pretrained weights can be downloaded from each model used by this DMS demo, 
     |   +-- model_1_atul.tflearn.index
     |   +-- model_1_atul.tflearn.meta
     +-- facenet
-    |   +-- 20180408-102900
-    |       +-- 20180408-102900.pb
+    |   +-- 20180402-114759
+    |       +-- 20180402-114759.pb
     +-- gaze
         +-- 3rdparty
         +-- GazeML

@@ -13,3 +13,5 @@
 gaze
 graphs
 /build/
+models
+tflite/app/src/main/assets
