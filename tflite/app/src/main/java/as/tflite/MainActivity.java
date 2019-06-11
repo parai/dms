@@ -18,13 +18,9 @@ package as.tflite;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.Paint.Style;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.Typeface;
 import android.graphics.RectF;
 
 import android.media.ImageReader.OnImageAvailableListener;
@@ -32,15 +28,15 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Size;
-import android.util.TypedValue;
 import as.tflite.customview.OverlayView;
-import as.tflite.env.BorderedText;
 import as.tflite.env.Logger;
 import as.tflite.env.ImageUtils;
 
 import as.tflite.customview.OverlayView.DrawCallback;
 import as.tflite.tracking.MultiBoxTracker;
 import as.tflite.tracking.Recognition;
+
+import as.tflite.dl.FaceNet;
 
 
 import android.content.res.AssetManager;
@@ -50,6 +46,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.IOException;
+
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.LinkedList;
@@ -59,15 +57,8 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
     private static final Logger LOGGER = new Logger();
 
     // Configuration values for the prepackaged SSD model.
-    private static final int TF_OD_API_INPUT_SIZE = 300;
-    private static final boolean TF_OD_API_IS_QUANTIZED = true;
-    private static final String TF_OD_API_MODEL_FILE = "detect.tflite";
-    private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/labelmap.txt";
-    // Minimum detection confidence to track a detection.
-    private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
     private static final boolean MAINTAIN_ASPECT = false;
     private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
-    private static final boolean SAVE_PREVIEW_BITMAP = false;
     private static final float TEXT_SIZE_DIP = 10;
     OverlayView trackingOverlay;
     private Integer sensorOrientation;
@@ -85,14 +76,15 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
     private MultiBoxTracker tracker;
 
-    private BorderedText borderedText;
-
     private Lock asMutex;
+
+    private FaceNet facenet;
 
     public native void asInit();
     public native void asPreProcess(Bitmap img);
     public native int  asGetFaceNumber();
     public native int[]  asGetFaceRect(int faceid);
+    public native Bitmap asGetFaceBitmap(int faceid);
 
     public native Bitmap asGetDebugBitmap();
 
@@ -160,22 +152,27 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
         }
 
         copyAssetFileIfNotExist("haarcascade_frontalface_alt.xml");
-
         asMutex = new ReentrantLock(false);;
         asInit();
     }
 
     @Override
     public void onPreviewSizeChosen(final Size size, final int rotation) {
-        final float textSizePx =
-                TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
-        borderedText = new BorderedText(textSizePx);
-        borderedText.setTypeface(Typeface.MONOSPACE);
+        // init DL models
+        AssetManager assetManager = getAssets();
+        try {
+            facenet = new FaceNet(assetManager, "facenet.tflite");
+        } catch (final IOException e) {
+            e.printStackTrace();
+            LOGGER.e(e, "Exception initializing FaceNet!");
+            Toast toast =
+                    Toast.makeText(
+                            getApplicationContext(), "FaceNet could not be initialized", Toast.LENGTH_SHORT);
+            toast.show();
+            finish();
+        }
 
         tracker = new MultiBoxTracker(this);
-
-        int cropSize = TF_OD_API_INPUT_SIZE;
 
         previewWidth = size.getWidth();
         previewHeight = size.getHeight();
@@ -244,6 +241,10 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
 
                     int faceNumber = asGetFaceNumber();
                     for(int i=0; i<faceNumber; i++) {
+                        Bitmap face = asGetFaceBitmap(i);
+                        facenet.predict(face);
+                        debugBitmap = face;
+
                         int[] rect = asGetFaceRect(i);
                         int x=rect[0], y=rect[1], w=rect[2], h=rect[3];
                         final RectF rectangle = new RectF(y, x, y+h, x+w);

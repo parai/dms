@@ -223,5 +223,23 @@ Java_as_tflite_MainActivity_asGetDebugBitmap(
 }
 
 
+extern "C"
+JNIEXPORT jobject
+JNICALL
+Java_as_tflite_MainActivity_asGetFaceBitmap(
+        JNIEnv *env,
+        jobject /* this */,
+        int faceid) {
+    jobject bitmap;
+
+    Mat faceo(c_frame, c_face_rect[faceid]);
+    Mat face;
+
+    resize(faceo, face, Size(160,160), 0, 0, INTER_LINEAR);
+    MatToBitmap(env, face, bitmap);
+
+    return bitmap;
+}
+
 
 
