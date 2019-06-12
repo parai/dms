@@ -13,7 +13,12 @@ import numpy as np
 import cv2
 import pickle
 
-from sklearn.metrics.pairwise import euclidean_distances
+#from sklearn.metrics.pairwise import euclidean_distances
+
+def euclidean_distances(embeddings1, embeddings2):
+    diff = np.subtract(embeddings1, embeddings2)
+    dist = np.sum(np.square(diff),1)
+    return [dist]
 
 __all__ = ['predict']
 
@@ -62,7 +67,7 @@ def _predict(face):
     face = face.reshape(1,160,160,3)
 
     feed_dict = { input_face: face, phase_train_placeholder:False }
-    emb = sess.run(embeddings, feed_dict=feed_dict) 
+    emb = sess.run(embeddings, feed_dict=feed_dict)
 
     fname = 'other'
     dis = 0

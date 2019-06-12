@@ -60,7 +60,7 @@ def visualize(context):
 #             drowsy,prob,(ex1,ey1,ex2,ey2) = face['drowsy']
 #             if((ex1<ex2) and (ey1<ey2)):
 #                 cv2.rectangle(frame, (x+ex1, y+ey1), (x+ex2, y+ey2), (0, 255, 0), 2)
-    gaze_visualize(context)
+    if('gaze' in args.network): gaze_visualize(context)
     cv2.imshow('frame',frame)
 
 def main():
