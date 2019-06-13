@@ -25,7 +25,7 @@ __all__ = ['predict']
 sess = tf.Session()
 
 def model():
-    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20180402-114759'
+    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20180408-102900'
     if(True):
         pb = glob.glob('%s/*.pb'%(dir))[0]
         with tf.gfile.FastGFile(pb, 'rb') as f:
