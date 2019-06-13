@@ -242,13 +242,15 @@ public class MainActivity extends CameraActivity implements OnImageAvailableList
                     int faceNumber = asGetFaceNumber();
                     for(int i=0; i<faceNumber; i++) {
                         Bitmap face = asGetFaceBitmap(i);
-                        facenet.predict(face);
-                        debugBitmap = face;
+                        float dis = facenet.predict(face);
+                        if(dis == 0.0) {
+                            debugBitmap = face;
+                        }
 
                         int[] rect = asGetFaceRect(i);
                         int x=rect[0], y=rect[1], w=rect[2], h=rect[3];
                         final RectF rectangle = new RectF(y, x, y+h, x+w);
-                        Recognition rec = new Recognition(""+i,"face"+i, 1.0f, rectangle);
+                        Recognition rec = new Recognition(""+i,"face"+i, dis, rectangle);
                         mappedRecognitions.add(rec);
                     }
 

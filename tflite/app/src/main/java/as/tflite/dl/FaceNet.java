@@ -20,9 +20,6 @@ public class FaceNet extends Base {
 
     private static final Logger LOGGER = new Logger();
 
-    private static final float IMAGE_MEAN = 128.0f;
-    private static final float IMAGE_STD = 128.0f;
-
     private ByteBuffer input;
     private float[][] output;
 
@@ -42,18 +39,47 @@ public class FaceNet extends Base {
         output = new float[1][512];
     }
 
-    public void predict(Bitmap face) {
+    public float predict(Bitmap face) {
         // Preprocess the image data from 0-255 int to normalized float based
         // on the provided parameters.
         face.getPixels(intValues, 0, face.getWidth(), 0, 0, face.getWidth(), face.getHeight());
-        input.rewind();
-        // TODO: prewhiten
+
+        float mean = 0.0f;
         for (int i = 0; i < 160; ++i) {
             for (int j = 0; j < 160; ++j) {
                 int pixelValue = intValues[i * 160 + j];
-                input.putFloat((((pixelValue >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-                input.putFloat((((pixelValue >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-                input.putFloat(((pixelValue & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                int r = (pixelValue >> 16) & 0xFF;
+                int g = (pixelValue >> 8) & 0xFF;
+                int b = pixelValue & 0xFF;
+                mean += r + g + b;
+            }
+        }
+        mean = mean/(160*160*3);
+
+        float std = 0.0f;
+        for (int i = 0; i < 160; ++i) {
+            for (int j = 0; j < 160; ++j) {
+                int pixelValue = intValues[i * 160 + j];
+                int r = (pixelValue >> 16) & 0xFF;
+                int g = (pixelValue >> 8) & 0xFF;
+                int b = pixelValue & 0xFF;
+                std += (r-mean)*(r-mean) + (g-mean)*(g-mean) + (b-mean)*(b-mean);
+            }
+        }
+        std = std/(160*160*3);
+        std = (float)Math.max(Math.sqrt(std), 1.0f / Math.sqrt(160*160*3));
+        LOGGER.i("std=%.2f, mean=%.2f", std, mean);
+
+        input.rewind();
+        for (int i = 0; i < 160; ++i) {
+            for (int j = 0; j < 160; ++j) {
+                int pixelValue = intValues[i * 160 + j];
+                int r = (pixelValue >> 16) & 0xFF;
+                int g = (pixelValue >> 8) & 0xFF;
+                int b = pixelValue & 0xFF;
+                input.putFloat((r - mean) / std);
+                input.putFloat((g - mean) / std);
+                input.putFloat((b - mean) / std);
             }
         }
 
@@ -64,17 +90,20 @@ public class FaceNet extends Base {
         // Run the inference call.
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
 
+        float dis = 0.0f;
         if(last_output == null) {
             last_output = new float[1][512];
+
+            for(int i=0; i<512; i++) {
+                last_output[0][i] = output[0][i];
+            }
         } else {
-            float dis = euclidean_distances(last_output, output);
+            dis = euclidean_distances(last_output, output);
 
             LOGGER.i("distance is %.2f", dis);
         }
-
-        for(int i=0; i<512; i++) {
-            last_output[0][i] = output[0][i];
-        }
+        
+        return dis;
     }
 
 
