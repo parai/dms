@@ -7,11 +7,16 @@
 # https://github.com/WindZu/facenet_facerecognition
 
 import os
+import sys
 import glob
 import tensorflow as tf
 import numpy as np
 import cv2
 import pickle
+try:
+    from .common import *
+except:
+    from common import *
 
 #from sklearn.metrics.pairwise import euclidean_distances
 
@@ -22,26 +27,68 @@ def euclidean_distances(embeddings1, embeddings2):
 
 __all__ = ['predict']
 
+def frozen_graph():
+    dir = os.path.dirname(os.path.realpath(__file__))
+    meta_dir = dir+'/facenet/20180408-102900'
+    pb = '%s/facenet/facenet.pb'%(dir)
+    facenet = '%s/facenet/facenet'%(dir)
+
+    if(not os.path.exists(facenet)):
+        RunCommand('cd %s/facenet && git clone https://github.com/davidsandberg/facenet'%(dir))
+    if(os.path.exists(pb)): return pb
+
+    sys.path.append(dir+'/facenet')
+
+    from facenet.src.models import inception_resnet_v1
+    from tensorflow.python.framework import graph_util
+
+    data_input = tf.placeholder(name='input', dtype=tf.float32, shape=[None, 160, 160, 3])
+    output, _ = inception_resnet_v1.inference(data_input, keep_probability=0.8, phase_train=False, bottleneck_layer_size=512)
+    output = tf.identity(output, name='embeddings')
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        ckpt = glob.glob('%s/*.index'%(meta_dir))[0][:-6]
+        if(False):
+            saver = tf.train.Saver()
+        else:
+            meta = glob.glob('%s/*.meta'%(meta_dir))[0]
+            saver = tf.train.import_meta_graph(meta)
+        saver.restore(sess, ckpt)
+        constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['embeddings'])
+        with tf.gfile.FastGFile(pb, mode='wb') as f:
+            f.write(constant_graph.SerializeToString())
+    print('export frozen graph', pb)
+    return pb
+
+frozenpb = frozen_graph()
+
 sess = tf.Session()
 
 def model():
-    dir = os.path.dirname(os.path.realpath(__file__))+'/facenet/20180408-102900'
+    dir = os.path.dirname(os.path.realpath(__file__))
+    meta_dir = dir+'/facenet/20180408-102900'
+
     if(True):
-        pb = glob.glob('%s/*.pb'%(dir))[0]
-        with tf.gfile.FastGFile(pb, 'rb') as f:
+        #frozenpb = glob.glob('%s/*.pb'%(meta_dir))[0]
+        with tf.gfile.FastGFile(frozenpb, 'rb') as f:
             graph_def = tf.GraphDef()
             graph_def.ParseFromString(f.read())
             _ = tf.import_graph_def(graph_def, name='')
     else:
-        meta = glob.glob('%s/*.meta'%(dir))[0]
-        ckpt = glob.glob('%s/*.index'%(dir))[0][:-6]
+        meta = glob.glob('%s/*.meta'%(meta_dir))[0]
+        ckpt = glob.glob('%s/*.index'%(meta_dir))[0][:-6]
         saver = tf.train.import_meta_graph(meta)
         saver.restore(sess, ckpt)
 
     input = sess.graph.get_tensor_by_name('input:0')
     embeddings = sess.graph.get_tensor_by_name('embeddings:0')
-    phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+    try:
+        phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+    except:
+        phase_train_placeholder = None
     sess.run(tf.global_variables_initializer())
+
+    #tf.summary.FileWriter('./graphs', sess.graph)
 
     return input,embeddings,phase_train_placeholder
 
@@ -66,7 +113,10 @@ def _predict(face):
     face = prewhiten(face)
     face = face.reshape(1,160,160,3)
 
-    feed_dict = { input_face: face, phase_train_placeholder:False }
+    if(phase_train_placeholder != None):
+        feed_dict = { input_face: face, phase_train_placeholder:False }
+    else:
+        feed_dict = { input_face: face }
     emb = sess.run(embeddings, feed_dict=feed_dict)
 
     fname = 'other'
@@ -88,7 +138,7 @@ def _predict(face):
             pickle.dump(people, open('facedb.pkl','wb'))
         else:
             fname = 'other'
-        dis = 0
+        #dis = 0
     elif(len(people[fname]) < 10):
         people[fname].append(emb)
         pickle.dump(people, open('facedb.pkl','wb'))

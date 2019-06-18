@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'de.undercouch.download'
 
 android {
     compileSdkVersion 28
@@ -43,6 +44,8 @@ android {
         }
     }
 }
+
+//apply from:'download.gradle'
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar','*.aar'])

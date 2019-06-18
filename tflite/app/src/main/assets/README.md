@@ -7,8 +7,8 @@
 1 is the best way.
 
 ```sh
-bazel build tensorflow/contrib/lite/toco:toco
-./bazel-bin/tensorflow/contrib/lite/toco/toco \
+bazel build tensorflow/lite/toco:toco
+./bazel-bin/tensorflow/lite/toco/toco \
   --input_file=facenet.pb \
   --output_file=facenet.tflite \
   --input_format=TENSORFLOW_GRAPHDEF \
@@ -16,6 +16,6 @@ bazel build tensorflow/contrib/lite/toco:toco
   --inference_type=FLOAT \
   --input_shape="1,160,160,3" \
   --input_array=input \
-  --output_array=output \
+  --output_array=embeddings \
   --allow_custom_ops
 ```
