@@ -19,6 +19,29 @@ minsize = 20 # minimum size of face
 threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
 factor = 0.709 # scale factor
 
+dir = os.path.dirname(os.path.realpath(__file__))
+pb = '%s/align/PNet.pb'%(dir)
+if(not os.path.exists(pb)):
+    from tensorflow.python.framework import graph_util
+    constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, 
+            ['pnet/conv4-2/BiasAdd', 'pnet/prob1'])
+    with tf.gfile.FastGFile(pb, mode='wb') as f:
+        f.write(constant_graph.SerializeToString())
+pb = '%s/align/RNet.pb'%(dir)
+if(not os.path.exists(pb)):
+    from tensorflow.python.framework import graph_util
+    constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, 
+            ['rnet/conv5-2/conv5-2', 'rnet/prob1'])
+    with tf.gfile.FastGFile(pb, mode='wb') as f:
+        f.write(constant_graph.SerializeToString())
+pb = '%s/align/ONet.pb'%(dir)
+if(not os.path.exists(pb)):
+    from tensorflow.python.framework import graph_util
+    constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, 
+            ['onet/conv6-2/conv6-2', 'onet/conv6-3/conv6-3'])
+    with tf.gfile.FastGFile(pb, mode='wb') as f:
+        f.write(constant_graph.SerializeToString())
+
 def predict(context):
     frame = context['frame']
     img = frame
