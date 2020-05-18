@@ -46,9 +46,9 @@ def model():
         graph_def.ParseFromString(f.read())
         _ = tf.import_graph_def(graph_def, name='')
 
-    frame_index = sess.graph.get_tensor_by_name('Webcam/fifo_queue_DequeueMany:0')
-    eye = sess.graph.get_tensor_by_name('Webcam/fifo_queue_DequeueMany:1')
-    eye_index = sess.graph.get_tensor_by_name('Webcam/fifo_queue_DequeueMany:2')
+    #frame_index = sess.graph.get_tensor_by_name('Webcam/fifo_queue_DequeueMany:0')
+    eye = sess.graph.get_tensor_by_name('eye:0')
+    #eye_index = sess.graph.get_tensor_by_name('Webcam/fifo_queue_DequeueMany:2')
     heatmaps = sess.graph.get_tensor_by_name('hourglass/hg_2/after/hmap/conv/BiasAdd:0')
     landmarks = sess.graph.get_tensor_by_name('upscale/mul:0')
     radius = sess.graph.get_tensor_by_name('radius/out/fc/BiasAdd:0')
@@ -113,6 +113,27 @@ def model2():
     heatmaps = sess.graph.get_tensor_by_name('hourglass/hg_2/after/hmap/conv/BiasAdd:0')
     landmarks = sess.graph.get_tensor_by_name('upscale/mul:0')
     radius = sess.graph.get_tensor_by_name('radius/out/fc/BiasAdd:0')
+
+    from tensorflow.python.framework import graph_util
+    constant_graph = graph_util.convert_variables_to_constants(
+            sess, sess.graph_def,
+            ['hourglass/hg_2/after/hmap/conv/BiasAdd', # heatmaps
+             'upscale/mul', # landmarks
+             'radius/out/fc/BiasAdd', # radius
+             'eye',
+            ])
+    # Fix nodes of freezed model
+    for node in constant_graph.node:
+        if node.op == 'RefSwitch':
+            node.op = 'Switch'
+            for index in range(len(node.input)):
+                if 'moving_' in node.input[index]:
+                    node.input[index] = node.input[index] + '/read'
+        elif node.op == 'AssignSub':
+            node.op = 'Sub'
+            if 'use_locking' in node.attr: del node.attr['use_locking']
+    with tf.gfile.FastGFile('%s/gaze.pb'%(dir), mode='wb') as f:
+        f.write(constant_graph.SerializeToString())
 
     return eye,heatmaps,landmarks,radius
 
